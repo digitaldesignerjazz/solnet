@@ -1,7 +1,7 @@
 """Hyperspace peering primitives and tunnel management."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -11,6 +11,9 @@ class HyperspaceTunnel:
 
     Provides multiplexed logical channels for agent-to-agent communication,
     sensor telemetry, and swarm coordination messages.
+
+    This class will be expanded with real encryption (Noise protocol etc.)
+    in later phases.
     """
     tunnel_id: str
     local_node: str
@@ -22,18 +25,15 @@ class HyperspaceTunnel:
 
     async def send(self, channel: str, data: Any) -> bool:
         """Send data over a logical channel within the tunnel."""
-        # TODO(phase1): Implement actual encrypted stream write
         print(f"[HyperspaceTunnel] Sent on channel '{channel}' (placeholder)")
         return True
 
-    async def recv(self, channel: str) -> Any:
-        """Receive data from a logical channel (blocking or with timeout)."""
-        # TODO(phase1): Implement actual encrypted stream read + demux
+    async def recv(self, channel: str, timeout: Optional[float] = None) -> Any:
+        """Receive data from a logical channel."""
         print(f"[HyperspaceTunnel] Received on channel '{channel}' (placeholder)")
         return None
 
     async def close(self) -> None:
-        """Close the tunnel and release resources."""
         self.state = "closed"
         print(f"[HyperspaceTunnel] Closed {self.tunnel_id}")
 
