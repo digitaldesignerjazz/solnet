@@ -1,57 +1,118 @@
 """Async Yggdrasil Admin API client for SolNet.
 
-Supports both HTTP (default :9001) and Unix domain socket connections.
-This module provides the foundation for real mesh interaction, peer management,
-and topology awareness.
+Features:
+- HTTP and Unix socket support
+- Auto-detection of common Yggdrasil admin endpoints
+- Helpful error messages
+- ping() and is_connected() methods
 """
 
 import asyncio
-import json
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import urlparse
+import os
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
 
+class YggdrasilConnectionError(Exception):
+    """Raised when we cannot reach the Yggdrasil admin API."""
+    pass
+
+
 class YggdrasilClient:
     """
-    Async client for Yggdrasil's admin API.
+    Async client for Yggdrasil's admin API with usability improvements.
 
-    Yggdrasil typically exposes its admin API on http://localhost:9001 or via
-    a Unix socket (e.g. /var/run/yggdrasil.sock or similar).
-
-    This client is designed to be used internally by SolNetNode.
+    Auto-detects common locations:
+    - http://localhost:9001 (default)
+    - Common Unix sockets used by systemd/Docker setups
     """
+
+    COMMON_ENDPOINTS = [
+        "http://localhost:9001",
+        "/var/run/yggdrasil.sock",
+        "/run/yggdrasil/yggdrasil.sock",
+        "/tmp/yggdrasil.sock",
+        "unix:///var/run/yggdrasil/yggdrasil.sock",
+    ]
 
     def __init__(
         self,
-        endpoint: str = "http://localhost:9001",
-        timeout: float = 10.0,
+        endpoint: Optional[str] = None,
+        timeout: float = 8.0,
+        auto_detect: bool = True,
     ) -> None:
-        self.endpoint = endpoint
         self.timeout = timeout
         self._session: Optional[aiohttp.ClientSession] = None
-        self._is_socket = endpoint.startswith("unix://") or "://" not in endpoint
+        self._working_endpoint: Optional[str] = None
 
-    async def _get_session(self) -> aiohttp.ClientSession:
+        if endpoint:
+            self._endpoints_to_try = [endpoint]
+        elif auto_detect:
+            self._endpoints_to_try = self.COMMON_ENDPOINTS.copy()
+        else:
+            self._endpoints_to_try = ["http://localhost:9001"]
+
+    async def _get_working_endpoint(self) -> str:
+        """Try endpoints until one works or raise a helpful error."""
+        if self._working_endpoint:
+            return self._working_endpoint
+
+        last_error = None
+        for ep in self._endpoints_to_try:
+            try:
+                # Quick connectivity test
+                if await self._test_endpoint(ep):
+                    self._working_endpoint = ep
+                    return ep
+            except Exception as e:
+                last_error = e
+                continue
+
+        # None worked
+        tried = ", ".join(self._endpoints_to_try)
+        raise YggdrasilConnectionError(
+            f"Could not reach Yggdrasil admin API. Tried: {tried}\n"
+            "Is Yggdrasil running? Common ways to start it:\n"
+            "  - yggdrasil -autoconf\n"
+            "  - Docker: docker run -p 9001:9001 yggdrasilnetwork/yggdrasil\n"
+            "  - Systemd: systemctl start yggdrasil"
+        ) from last_error
+
+    async def _test_endpoint(self, endpoint: str) -> bool:
+        """Quick test to see if an endpoint responds."""
+        try:
+            session = await self._get_session(endpoint)
+            # Use a very short timeout for detection
+            async with session.post(
+                self._get_request_url(endpoint),
+                json={"request": "getSelf"},
+                timeout=aiohttp.ClientTimeout(total=2.0),
+            ) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
+
+    def _get_request_url(self, endpoint: str) -> str:
+        if endpoint.startswith(("unix://", "/")):
+            return "http://localhost"  # dummy for UnixConnector
+        return endpoint
+
+    async def _get_session(self, endpoint: Optional[str] = None) -> aiohttp.ClientSession:
+        ep = endpoint or (self._working_endpoint or self._endpoints_to_try[0])
         if self._session is None or self._session.closed:
-            if self._is_socket:
-                # Unix socket support (connector)
-                connector = aiohttp.UnixConnector(path=self._parse_unix_path(self.endpoint))
+            if ep.startswith(("unix://", "/")):
+                path = ep.replace("unix://", "")
+                connector = aiohttp.UnixConnector(path=path)
                 self._session = aiohttp.ClientSession(connector=connector)
             else:
                 self._session = aiohttp.ClientSession()
         return self._session
 
-    def _parse_unix_path(self, endpoint: str) -> str:
-        if endpoint.startswith("unix://"):
-            return endpoint[7:]
-        return endpoint  # assume raw path was passed
-
     async def _request(self, method: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Internal method to call Yggdrasil admin API."""
-        session = await self._get_session()
-        url = self.endpoint if not self._is_socket else "http://localhost"  # dummy host for socket
+        endpoint = await self._get_working_endpoint()
+        session = await self._get_session(endpoint)
+        url = self._get_request_url(endpoint)
 
         payload = {"request": method}
         if params:
@@ -65,62 +126,63 @@ class YggdrasilClient:
             ) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
-                if "error" in data and data["error"]:
-                    raise RuntimeError(f"Yggdrasil error: {data['error']}")
+                if data.get("error"):
+                    raise YggdrasilConnectionError(f"Yggdrasil returned error: {data['error']}")
                 return data.get("response", data)
         except aiohttp.ClientError as e:
-            raise ConnectionError(f"Failed to communicate with Yggdrasil at {self.endpoint}: {e}") from e
+            raise YggdrasilConnectionError(
+                f"Failed to reach Yggdrasil admin API at {endpoint}. Is Yggdrasil running?"
+            ) from e
 
     async def close(self) -> None:
         if self._session and not self._session.closed:
             await self._session.close()
 
-    # --- High-level convenience methods ---
+    # === Public API ===
+
+    async def ping(self) -> bool:
+        """Check if we can reach the Yggdrasil admin API."""
+        try:
+            await self.get_self()
+            return True
+        except YggdrasilConnectionError:
+            return False
+
+    async def is_connected(self) -> bool:
+        return await self.ping()
 
     async def get_self(self) -> Dict[str, Any]:
-        """Return information about this Yggdrasil node (keys, coords, etc.)."""
         return await self._request("getSelf")
 
     async def get_peers(self) -> List[Dict[str, Any]]:
-        """Return list of connected peers with connection info."""
         data = await self._request("getPeers")
         return data.get("peers", [])
 
     async def get_routes(self) -> List[Dict[str, Any]]:
-        """Return current routing table / tree."""
         data = await self._request("getTree")
         return data.get("entries", [])
 
     async def add_peer(self, uri: str, interface: Optional[str] = None) -> Dict[str, Any]:
-        """Add a new peer (e.g. tcp://1.2.3.4:12345 or socks://... )."""
         params: Dict[str, Any] = {"uri": uri}
         if interface:
             params["interface"] = interface
         return await self._request("addPeer", params)
 
     async def remove_peer(self, uri_or_key: str) -> Dict[str, Any]:
-        """Remove a peer by URI or public key."""
         return await self._request("removePeer", {"uri": uri_or_key})
 
     async def get_node_info(self) -> Dict[str, Any]:
-        """Combined view: self info + basic peer/route summary."""
         self_info = await self.get_self()
-        peers = await self.get_peers()
-        routes = await self.get_routes()
+        try:
+            peers = await self.get_peers()
+            routes = await self.get_routes()
+        except Exception:
+            peers, routes = [], []
+
         return {
             "self": self_info,
             "peer_count": len(peers),
             "route_count": len(routes),
-            "peers": peers[:5],   # limit for readability
-            "routes_sample": routes[:3],
+            "peers_sample": peers[:3],
+            "routes_sample": routes[:2],
         }
-
-    async def wait_for_topology_change(self, timeout: float = 30.0) -> bool:
-        """
-        Placeholder for future event-driven topology listening.
-        In a full implementation this could use Yggdrasil's admin socket
-        events or polling + diffing.
-        """
-        # TODO(phase1): Implement real event subscription or smart polling
-        await asyncio.sleep(min(timeout, 2.0))
-        return True
