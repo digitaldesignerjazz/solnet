@@ -17,7 +17,7 @@ class SwarmAgent:
     """
     Base class for agents participating in a NovaSwarm.
 
-    Supports emotional state, personality traits, fatigue, loyalty, and dynamic relationship evolution.
+    Full emotional + loyalty system with task outcome feedback.
     """
 
     agent_id: str
@@ -44,6 +44,26 @@ class SwarmAgent:
         self.state.fatigue = min(1.0, self.state.fatigue + fatigue_increase)
         self.state.energy = max(0.0, self.state.energy - fatigue_increase * 0.5)
 
+    def on_task_completed(self, success: bool = True):
+        """
+        Called when a task assigned to this agent is completed.
+        Success boosts energy and loyalty; failure increases fatigue.
+        """
+        p = self.state.personality
+
+        if success:
+            # Success feedback
+            self.state.energy = min(1.0, self.state.energy + 0.15)
+            self.state.fatigue = max(0.0, self.state.fatigue - 0.1)
+
+            # Small loyalty boost to the swarm in general (can be refined later)
+            for other_id in self.state.loyalty_map:
+                self.update_loyalty(other_id, +0.03)
+        else:
+            # Failure feedback
+            self.state.fatigue = min(1.0, self.state.fatigue + 0.2)
+            self.state.energy = max(0.0, self.state.energy - 0.1)
+
     def update_emotional_state(self, updates: Dict[str, float]):
         for key, value in updates.items():
             if hasattr(self.state, key):
@@ -62,7 +82,11 @@ class SwarmAgent:
 
         self.state.last_update = time.time()
 
-    # === Loyalty System ===
+    def decay_loyalty(self, time_delta: float = 1.0, decay_rate: float = 0.02):
+        for other_id in list(self.state.loyalty_map.keys()):
+            current = self.state.loyalty_map[other_id]
+            new_value = max(0.0, current - (decay_rate * time_delta))
+            self.state.loyalty_map[other_id] = new_value
 
     def update_loyalty(self, other_agent_id: str, delta: float):
         current = self.state.loyalty_map.get(other_agent_id, 0.5)
@@ -72,15 +96,7 @@ class SwarmAgent:
     def get_loyalty_toward(self, other_agent_id: str) -> float:
         return self.state.loyalty_map.get(other_agent_id, 0.5)
 
-    def decay_loyalty(self, time_delta: float = 1.0, decay_rate: float = 0.02):
-        """Loyalty toward other agents slowly decays over time if not reinforced."""
-        for other_id in list(self.state.loyalty_map.keys()):
-            current = self.state.loyalty_map[other_id]
-            new_value = max(0.0, current - (decay_rate * time_delta))
-            self.state.loyalty_map[other_id] = new_value
-
     def record_successful_collaboration(self, other_agent_id: str, boost: float = 0.1):
-        """Increase loyalty after successful joint work."""
         self.update_loyalty(other_agent_id, boost)
 
     async def send_message(self, message: SwarmMessage) -> bool:

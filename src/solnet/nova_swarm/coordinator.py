@@ -1,4 +1,4 @@
-"""SwarmCoordinator with emotional + loyalty-aware assignment and collaboration tracking."""
+"""SwarmCoordinator with full emotional and loyalty feedback loop."""
 
 from typing import Dict, List, Optional, Tuple
 
@@ -12,9 +12,7 @@ from .types import TaskStatus
 
 class SwarmCoordinator:
     """
-    Coordinates a decentralized swarm with emotional state and loyalty dynamics.
-
-    Supports loyalty from successful collaboration and loyalty decay.
+    Full emotional + loyalty-aware swarm coordinator with task outcome feedback.
     """
 
     def __init__(self, swarm_id: str):
@@ -51,7 +49,6 @@ class SwarmCoordinator:
                 load = self._agent_load.get(agent_id, 0)
                 fatigue_penalty = agent.state.fatigue * 3.0
 
-                # Loyalty bonus from already assigned agents
                 loyalty_bonus = 0.0
                 for assigned_id in self._agent_load:
                     if self._agent_load[assigned_id] > 0:
@@ -77,23 +74,31 @@ class SwarmCoordinator:
 
         return None
 
-    def complete_task(self, task_id: str):
-        """Mark a task as completed and boost loyalty between involved agents."""
+    def complete_task(self, task_id: str, success: bool = True):
+        """Mark task complete and apply emotional + loyalty feedback."""
         task = self.tasks.get(task_id)
         if not task or not task.assigned_to:
             return
 
-        task.status = TaskStatus.COMPLETED
-        assigned_agent_id = task.assigned_to
+        assigned_agent = self.agents.get(task.assigned_to)
+        if not assigned_agent:
+            return
 
-        # Boost loyalty between the assigned agent and others who contributed
-        # (Simple version: boost with all other active agents)
+        # Update task status
+        task.status = TaskStatus.COMPLETED if success else TaskStatus.FAILED
+
+        # Apply emotional feedback to the assigned agent
+        assigned_agent.on_task_completed(success=success)
+
+        # Boost loyalty between collaborating agents
         for other_id, other_agent in self.agents.items():
-            if other_id != assigned_agent_id and self._agent_load.get(other_id, 0) > 0:
-                self.agents[assigned_agent_id].record_successful_collaboration(other_id, boost=0.08)
-                other_agent.record_successful_collaboration(assigned_agent_id, boost=0.08)
+            if other_id != task.assigned_to and self._agent_load.get(other_id, 0) > 0:
+                assigned_agent.record_successful_collaboration(other_id, boost=0.06)
+                other_agent.record_successful_collaboration(task.assigned_to, boost=0.06)
 
-        print(f"[Coordinator] Task '{task.description}' completed. Loyalty boosted.")
+        status_text = "successfully" if success else "unsuccessfully"
+        print(f"[Coordinator] Task '{task.description}' completed {status_text}. "
+              f"Emotional feedback applied to {task.assigned_to}.")
 
     def decay_all_emotions(self, time_delta: float = 1.0):
         for agent in self.agents.values():
