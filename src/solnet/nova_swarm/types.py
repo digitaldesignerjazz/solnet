@@ -23,26 +23,29 @@ class TaskStatus(Enum):
 @dataclass
 class PersonalityTraits:
     """Defines an agent's personality, influencing emotional dynamics."""
-    energy_baseline: float = 0.8      # Natural energy level
-    fatigue_rate: float = 0.15        # How fast fatigue increases per task
-    recovery_rate: float = 0.08       # How fast energy recovers over time
-    loyalty: float = 0.7              # Tendency to stay committed to tasks/swarm
+    energy_baseline: float = 0.8
+    fatigue_rate: float = 0.15
+    recovery_rate: float = 0.08
+    loyalty: float = 0.7
 
 
 @dataclass
 class AgentState:
-    """Current state of a swarm agent, including emotional and personality data."""
+    """Current state of a swarm agent, including emotional and relationship data."""
     agent_id: str
     role: 'RoleType'
     status: str = "active"
     capabilities: list[str] = field(default_factory=list)
 
-    # Emotional state (0.0 - 1.0)
+    # Emotional state
     energy: float = 0.8
     fatigue: float = 0.0
 
-    # Personality (influences emotional dynamics)
+    # Personality
     personality: PersonalityTraits = field(default_factory=PersonalityTraits)
+
+    # Loyalty toward other agents (agent_id -> loyalty score)
+    loyalty_map: Dict[str, float] = field(default_factory=dict)
 
     last_update: float = field(default_factory=lambda: __import__("time").time())
 

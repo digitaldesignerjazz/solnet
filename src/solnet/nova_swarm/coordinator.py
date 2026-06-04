@@ -1,4 +1,4 @@
-"""SwarmCoordinator with emotional state awareness."""
+"""SwarmCoordinator with emotional + loyalty-aware assignment."""
 
 from typing import Dict, List, Optional, Tuple
 
@@ -12,9 +12,9 @@ from .types import TaskStatus
 
 class SwarmCoordinator:
     """
-    Coordinates a decentralized swarm with emotional state influence.
+    Coordinates a decentralized swarm with emotional state and loyalty influence.
 
-    Agents with high fatigue receive a penalty during assignment.
+    Agents with high loyalty toward already-assigned teammates are preferred.
     """
 
     def __init__(self, swarm_id: str):
@@ -50,18 +50,23 @@ class SwarmCoordinator:
             if agent.can_handle_task(task):
                 load = self._agent_load.get(agent_id, 0)
 
-                # === Fatigue Penalty Formula ===
-                # Higher fatigue = higher effective load
-                fatigue_penalty = agent.state.fatigue * 3.0   # Tunable multiplier
-                effective_load = load + fatigue_penalty
+                # Fatigue penalty
+                fatigue_penalty = agent.state.fatigue * 3.0
 
+                # Loyalty bonus: prefer agents with high loyalty to already assigned agents
+                loyalty_bonus = 0.0
+                for assigned_agent_id in self._agent_load:
+                    if self._agent_load[assigned_agent_id] > 0:
+                        loyalty = agent.get_loyalty_toward(assigned_agent_id)
+                        loyalty_bonus -= (1.0 - loyalty) * 0.5   # Higher loyalty = lower effective load
+
+                effective_load = load + fatigue_penalty + loyalty_bonus
                 capable_agents.append((effective_load, agent_id, agent))
 
         if not capable_agents:
             print(f"[Coordinator] No capable agent for task: {task.description}")
             return None
 
-        # Sort by effective load (lower is better)
         capable_agents.sort(key=lambda x: x[0])
 
         best_effective_load, best_agent_id, best_agent = capable_agents[0]
@@ -70,13 +75,12 @@ class SwarmCoordinator:
             self._agent_load[best_agent_id] += 1
             task.status = TaskStatus.ASSIGNED
             print(f"[Coordinator] Assigned '{task.description}' to {best_agent_id} "
-                  f"(effective_load={best_effective_load:.2f}, fatigue={best_agent.state.fatigue:.2f})")
+                  f"(effective_load={best_effective_load:.2f})")
             return best_agent_id
 
         return None
 
     def decay_all_emotions(self, time_delta: float = 1.0):
-        """Apply emotional decay/recovery to all agents."""
         for agent in self.agents.values():
             agent.decay_emotions(time_delta)
 
