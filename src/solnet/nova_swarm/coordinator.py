@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from .agent import SwarmAgent
 from .roles import ExplorerRole, WorkerRole, ValidatorRole
 from .task import Task
+from .types import TaskStatus
 
 
 class SwarmCoordinator:
@@ -14,7 +15,7 @@ class SwarmCoordinator:
     Features:
     - Capability & role-based filtering
     - Simple load balancing (least loaded agent first)
-    - Clear feedback on assignment success/failure
+    - Proper task status updates
     """
 
     def __init__(self, swarm_id: str):
@@ -45,7 +46,7 @@ class SwarmCoordinator:
         Assignment strategy (in order):
         1. Must be able to handle the task type
         2. Prefer lower current load (load balancing)
-        3. Stable ordering for determinism
+        3. Update task status to ASSIGNED on success
         """
         task = self.tasks.get(task_id)
         if not task:
@@ -72,6 +73,7 @@ class SwarmCoordinator:
 
         if best_agent.assign_task(task):
             self._agent_load[best_agent_id] = best_load + 1
+            task.status = TaskStatus.ASSIGNED          # <-- NEW
             print(f"[Coordinator] Assigned task '{task.description}' to {best_agent_id} (load={best_load + 1})")
             return best_agent_id
 
@@ -82,6 +84,6 @@ class SwarmCoordinator:
         return {
             "swarm_id": self.swarm_id,
             "agent_count": len(self.agents),
-            "active_tasks": len([t for t in self.tasks.values() if t.status.name == "PENDING"]),
+            "active_tasks": len([t for t in self.tasks.values() if t.status != TaskStatus.COMPLETED]),
             "agent_loads": dict(self._agent_load),
         }
