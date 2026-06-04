@@ -21,10 +21,7 @@ class SwarmAgent:
     role: Role
     state: AgentState
     capabilities: List[str] = field(default_factory=list)
-
-    def __post_init__(self):
-        if not self.capabilities:
-            self.capabilities = self.role.capabilities if hasattr(self.role, "capabilities") else []
+    current_tasks: int = 0  # Simple local load tracking
 
     def can_handle_task(self, task: Task) -> bool:
         """Check if this agent can handle the given task."""
@@ -33,6 +30,7 @@ class SwarmAgent:
     def assign_task(self, task: Task) -> bool:
         if self.can_handle_task(task):
             task.assigned_to = self.agent_id
+            self.current_tasks += 1
             return True
         return False
 

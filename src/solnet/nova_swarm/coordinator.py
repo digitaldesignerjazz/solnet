@@ -1,6 +1,6 @@
 """SwarmCoordinator - manages roles, task delegation, and swarm health."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .agent import SwarmAgent
 from .roles import ExplorerRole, WorkerRole, ValidatorRole
@@ -9,23 +9,28 @@ from .task import Task
 
 class SwarmCoordinator:
     """
-    Coordinates a decentralized swarm of agents.
+    Coordinates a decentralized swarm of agents with smarter assignment.
 
-    Responsible for role assignment, task distribution,
-    and maintaining overall swarm health and emergent behavior.
+    Features:
+    - Capability & role-based filtering
+    - Simple load balancing (least loaded agent first)
+    - Clear feedback on assignment success/failure
     """
 
     def __init__(self, swarm_id: str):
         self.swarm_id = swarm_id
         self.agents: Dict[str, SwarmAgent] = {}
         self.tasks: Dict[str, Task] = {}
+        self._agent_load: Dict[str, int] = {}  # Track current task load per agent
 
     def register_agent(self, agent: SwarmAgent):
         self.agents[agent.agent_id] = agent
+        if agent.agent_id not in self._agent_load:
+            self._agent_load[agent.agent_id] = 0
 
     def create_task(self, description: str, task_type: str = "general", priority: int = 1) -> Task:
         task = Task(
-            task_id=f"task-{len(self.tasks)+1}",
+            task_id=f"task-{len(self.tasks) + 1}",
             description=description,
             task_type=task_type,
             priority=priority,
@@ -34,14 +39,43 @@ class SwarmCoordinator:
         return task
 
     def assign_task(self, task_id: str) -> Optional[str]:
+        """
+        Assign a task to the best available agent.
+
+        Assignment strategy (in order):
+        1. Must be able to handle the task type
+        2. Prefer lower current load (load balancing)
+        3. Stable ordering for determinism
+        """
         task = self.tasks.get(task_id)
         if not task:
+            print(f"[Coordinator] Task {task_id} not found.")
             return None
 
-        for agent in self.agents.values():
+        # Find all capable agents
+        capable_agents: List[Tuple[int, str, SwarmAgent]] = []
+
+        for agent_id, agent in self.agents.items():
             if agent.can_handle_task(task):
-                if agent.assign_task(task):
-                    return agent.agent_id
+                load = self._agent_load.get(agent_id, 0)
+                capable_agents.append((load, agent_id, agent))
+
+        if not capable_agents:
+            print(f"[Coordinator] No agent can handle task '{task.description}' (type={task.task_type})")
+            return None
+
+        # Sort by load (ascending), then by agent_id for determinism
+        capable_agents.sort(key=lambda x: (x[0], x[1]))
+
+        # Assign to the least loaded capable agent
+        best_load, best_agent_id, best_agent = capable_agents[0]
+
+        if best_agent.assign_task(task):
+            self._agent_load[best_agent_id] = best_load + 1
+            print(f"[Coordinator] Assigned task '{task.description}' to {best_agent_id} (load={best_load + 1})")
+            return best_agent_id
+
+        print(f"[Coordinator] Failed to assign task to {best_agent_id}")
         return None
 
     def get_swarm_status(self) -> Dict:
@@ -49,4 +83,5 @@ class SwarmCoordinator:
             "swarm_id": self.swarm_id,
             "agent_count": len(self.agents),
             "active_tasks": len([t for t in self.tasks.values() if t.status.name == "PENDING"]),
+            "agent_loads": dict(self._agent_load),
         }
