@@ -1,6 +1,8 @@
-"""SwarmCoordinator - manages roles, task delegation, and swarm health."""
+"""SwarmCoordinator with emotional state awareness."""
 
 from typing import Dict, List, Optional, Tuple
+
+import time
 
 from .agent import SwarmAgent
 from .roles import ExplorerRole, WorkerRole, ValidatorRole
@@ -10,19 +12,16 @@ from .types import TaskStatus
 
 class SwarmCoordinator:
     """
-    Coordinates a decentralized swarm of agents with smarter assignment.
+    Coordinates a decentralized swarm with emotional state influence.
 
-    Features:
-    - Capability & role-based filtering
-    - Simple load balancing (least loaded agent first)
-    - Proper task status updates
+    Agents with high fatigue receive a penalty during assignment.
     """
 
     def __init__(self, swarm_id: str):
         self.swarm_id = swarm_id
         self.agents: Dict[str, SwarmAgent] = {}
         self.tasks: Dict[str, Task] = {}
-        self._agent_load: Dict[str, int] = {}  # Track current task load per agent
+        self._agent_load: Dict[str, int] = {}
 
     def register_agent(self, agent: SwarmAgent):
         self.agents[agent.agent_id] = agent
@@ -40,50 +39,51 @@ class SwarmCoordinator:
         return task
 
     def assign_task(self, task_id: str) -> Optional[str]:
-        """
-        Assign a task to the best available agent.
-
-        Assignment strategy (in order):
-        1. Must be able to handle the task type
-        2. Prefer lower current load (load balancing)
-        3. Update task status to ASSIGNED on success
-        """
         task = self.tasks.get(task_id)
         if not task:
             print(f"[Coordinator] Task {task_id} not found.")
             return None
 
-        # Find all capable agents
-        capable_agents: List[Tuple[int, str, SwarmAgent]] = []
+        capable_agents: List[Tuple[float, str, SwarmAgent]] = []
 
         for agent_id, agent in self.agents.items():
             if agent.can_handle_task(task):
                 load = self._agent_load.get(agent_id, 0)
-                capable_agents.append((load, agent_id, agent))
+
+                # === Fatigue Penalty Formula ===
+                # Higher fatigue = higher effective load
+                fatigue_penalty = agent.state.fatigue * 3.0   # Tunable multiplier
+                effective_load = load + fatigue_penalty
+
+                capable_agents.append((effective_load, agent_id, agent))
 
         if not capable_agents:
-            print(f"[Coordinator] No agent can handle task '{task.description}' (type={task.task_type})")
+            print(f"[Coordinator] No capable agent for task: {task.description}")
             return None
 
-        # Sort by load (ascending), then by agent_id for determinism
-        capable_agents.sort(key=lambda x: (x[0], x[1]))
+        # Sort by effective load (lower is better)
+        capable_agents.sort(key=lambda x: x[0])
 
-        # Assign to the least loaded capable agent
-        best_load, best_agent_id, best_agent = capable_agents[0]
+        best_effective_load, best_agent_id, best_agent = capable_agents[0]
 
         if best_agent.assign_task(task):
-            self._agent_load[best_agent_id] = best_load + 1
-            task.status = TaskStatus.ASSIGNED          # <-- NEW
-            print(f"[Coordinator] Assigned task '{task.description}' to {best_agent_id} (load={best_load + 1})")
+            self._agent_load[best_agent_id] += 1
+            task.status = TaskStatus.ASSIGNED
+            print(f"[Coordinator] Assigned '{task.description}' to {best_agent_id} "
+                  f"(effective_load={best_effective_load:.2f}, fatigue={best_agent.state.fatigue:.2f})")
             return best_agent_id
 
-        print(f"[Coordinator] Failed to assign task to {best_agent_id}")
         return None
+
+    def decay_all_emotions(self, time_delta: float = 1.0):
+        """Apply emotional decay/recovery to all agents."""
+        for agent in self.agents.values():
+            agent.decay_emotions(time_delta)
 
     def get_swarm_status(self) -> Dict:
         return {
             "swarm_id": self.swarm_id,
             "agent_count": len(self.agents),
-            "active_tasks": len([t for t in self.tasks.values() if t.status != TaskStatus.COMPLETED]),
             "agent_loads": dict(self._agent_load),
+            "average_fatigue": sum(a.state.fatigue for a in self.agents.values()) / max(1, len(self.agents)),
         }
