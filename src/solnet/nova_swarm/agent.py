@@ -17,7 +17,7 @@ class SwarmAgent:
     """
     Base class for agents participating in a NovaSwarm.
 
-    Supports emotional state, personality traits, fatigue, and loyalty between agents.
+    Supports emotional state, personality traits, fatigue, loyalty, and dynamic relationship evolution.
     """
 
     agent_id: str
@@ -65,14 +65,23 @@ class SwarmAgent:
     # === Loyalty System ===
 
     def update_loyalty(self, other_agent_id: str, delta: float):
-        """Adjust loyalty toward another agent."""
         current = self.state.loyalty_map.get(other_agent_id, 0.5)
         new_value = max(0.0, min(1.0, current + delta))
         self.state.loyalty_map[other_agent_id] = new_value
 
     def get_loyalty_toward(self, other_agent_id: str) -> float:
-        """Get current loyalty score toward another agent (default 0.5 = neutral)."""
         return self.state.loyalty_map.get(other_agent_id, 0.5)
+
+    def decay_loyalty(self, time_delta: float = 1.0, decay_rate: float = 0.02):
+        """Loyalty toward other agents slowly decays over time if not reinforced."""
+        for other_id in list(self.state.loyalty_map.keys()):
+            current = self.state.loyalty_map[other_id]
+            new_value = max(0.0, current - (decay_rate * time_delta))
+            self.state.loyalty_map[other_id] = new_value
+
+    def record_successful_collaboration(self, other_agent_id: str, boost: float = 0.1):
+        """Increase loyalty after successful joint work."""
+        self.update_loyalty(other_agent_id, boost)
 
     async def send_message(self, message: SwarmMessage) -> bool:
         if self.comm:

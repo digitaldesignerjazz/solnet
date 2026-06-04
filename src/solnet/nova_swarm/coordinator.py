@@ -1,4 +1,4 @@
-"""SwarmCoordinator with emotional + loyalty-aware assignment."""
+"""SwarmCoordinator with emotional + loyalty-aware assignment and collaboration tracking."""
 
 from typing import Dict, List, Optional, Tuple
 
@@ -12,9 +12,9 @@ from .types import TaskStatus
 
 class SwarmCoordinator:
     """
-    Coordinates a decentralized swarm with emotional state and loyalty influence.
+    Coordinates a decentralized swarm with emotional state and loyalty dynamics.
 
-    Agents with high loyalty toward already-assigned teammates are preferred.
+    Supports loyalty from successful collaboration and loyalty decay.
     """
 
     def __init__(self, swarm_id: str):
@@ -49,16 +49,14 @@ class SwarmCoordinator:
         for agent_id, agent in self.agents.items():
             if agent.can_handle_task(task):
                 load = self._agent_load.get(agent_id, 0)
-
-                # Fatigue penalty
                 fatigue_penalty = agent.state.fatigue * 3.0
 
-                # Loyalty bonus: prefer agents with high loyalty to already assigned agents
+                # Loyalty bonus from already assigned agents
                 loyalty_bonus = 0.0
-                for assigned_agent_id in self._agent_load:
-                    if self._agent_load[assigned_agent_id] > 0:
-                        loyalty = agent.get_loyalty_toward(assigned_agent_id)
-                        loyalty_bonus -= (1.0 - loyalty) * 0.5   # Higher loyalty = lower effective load
+                for assigned_id in self._agent_load:
+                    if self._agent_load[assigned_id] > 0:
+                        loyalty = agent.get_loyalty_toward(assigned_id)
+                        loyalty_bonus -= (1.0 - loyalty) * 0.5
 
                 effective_load = load + fatigue_penalty + loyalty_bonus
                 capable_agents.append((effective_load, agent_id, agent))
@@ -74,15 +72,33 @@ class SwarmCoordinator:
         if best_agent.assign_task(task):
             self._agent_load[best_agent_id] += 1
             task.status = TaskStatus.ASSIGNED
-            print(f"[Coordinator] Assigned '{task.description}' to {best_agent_id} "
-                  f"(effective_load={best_effective_load:.2f})")
+            print(f"[Coordinator] Assigned '{task.description}' to {best_agent_id}")
             return best_agent_id
 
         return None
 
+    def complete_task(self, task_id: str):
+        """Mark a task as completed and boost loyalty between involved agents."""
+        task = self.tasks.get(task_id)
+        if not task or not task.assigned_to:
+            return
+
+        task.status = TaskStatus.COMPLETED
+        assigned_agent_id = task.assigned_to
+
+        # Boost loyalty between the assigned agent and others who contributed
+        # (Simple version: boost with all other active agents)
+        for other_id, other_agent in self.agents.items():
+            if other_id != assigned_agent_id and self._agent_load.get(other_id, 0) > 0:
+                self.agents[assigned_agent_id].record_successful_collaboration(other_id, boost=0.08)
+                other_agent.record_successful_collaboration(assigned_agent_id, boost=0.08)
+
+        print(f"[Coordinator] Task '{task.description}' completed. Loyalty boosted.")
+
     def decay_all_emotions(self, time_delta: float = 1.0):
         for agent in self.agents.values():
             agent.decay_emotions(time_delta)
+            agent.decay_loyalty(time_delta)
 
     def get_swarm_status(self) -> Dict:
         return {
