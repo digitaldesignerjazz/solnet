@@ -5,19 +5,39 @@ with task assignment, completion feedback, and emotional decay.
 
 Run with:
     python examples/emotional_swarm_simulation.py
+
+Works whether installed as package (pip install -e .) or run from source tree.
 """
 
 import asyncio
-import time
+import sys
+from pathlib import Path
 
-from src.solnet.nova_swarm import (
-    SwarmAgent,
-    SwarmCoordinator,
-    ExplorerRole,
-    WorkerRole,
-    ValidatorRole,
-    PersonalityTraits,
-)
+# Support running from source tree (dev) or after `pip install -e .`
+try:
+    from solnet.nova_swarm import (
+        SwarmAgent,
+        SwarmCoordinator,
+        ExplorerRole,
+        WorkerRole,
+        ValidatorRole,
+        PersonalityTraits,
+        AgentState,
+        RoleType,
+    )
+except ImportError:
+    # Fallback for running directly from repo root or examples/
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from src.solnet.nova_swarm import (
+        SwarmAgent,
+        SwarmCoordinator,
+        ExplorerRole,
+        WorkerRole,
+        ValidatorRole,
+        PersonalityTraits,
+        AgentState,
+        RoleType,
+    )
 
 
 def print_status(coordinator, step):
@@ -29,42 +49,52 @@ def print_status(coordinator, step):
     print(f"  Swarm Status: {coordinator.get_swarm_status()}")
 
 
+def make_agent_state(agent_id: str, personality: PersonalityTraits, energy: float = 0.8) -> AgentState:
+    """Helper to construct a proper AgentState for simulations."""
+    return AgentState(
+        agent_id=agent_id,
+        role=RoleType.WORKER,  # placeholder; SwarmAgent.role (Role instance) drives behavior
+        energy=energy,
+        fatigue=0.0,
+        personality=personality,
+        loyalty_map={},
+    )
+
+
 async def run_simulation():
     print("=== NovaSwarm Emotional + Loyalty Simulation ===\n")
 
     coordinator = SwarmCoordinator(swarm_id="emotional-test-swarm")
 
-    # Create agents with different personalities
+    # Create agents with different personalities using proper dataclasses
     explorer = SwarmAgent(
         agent_id="explorer-01",
         role=ExplorerRole(),
-        state=type('obj', (object,), {
-            'personality': PersonalityTraits(
+        state=make_agent_state(
+            "explorer-01",
+            PersonalityTraits(
                 energy_baseline=0.85,
                 fatigue_rate=0.12,
                 recovery_rate=0.10,
                 loyalty=0.75
             ),
-            'energy': 0.85,
-            'fatigue': 0.0,
-            'loyalty_map': {}
-        })()
+            energy=0.85,
+        ),
     )
 
     worker = SwarmAgent(
         agent_id="worker-01",
         role=WorkerRole(),
-        state=type('obj', (object,), {
-            'personality': PersonalityTraits(
+        state=make_agent_state(
+            "worker-01",
+            PersonalityTraits(
                 energy_baseline=0.75,
                 fatigue_rate=0.18,
                 recovery_rate=0.07,
                 loyalty=0.65
             ),
-            'energy': 0.75,
-            'fatigue': 0.0,
-            'loyalty_map': {}
-        })()
+            energy=0.75,
+        ),
     )
 
     coordinator.register_agent(explorer)
