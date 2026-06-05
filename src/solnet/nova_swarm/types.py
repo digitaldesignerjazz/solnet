@@ -33,7 +33,7 @@ class PersonalityTraits:
 class AgentState:
     """Current state of a swarm agent, including emotional and relationship data."""
     agent_id: str
-    role: 'RoleType'
+    role: RoleType  # logical role type; SwarmAgent.role provides the Role behavior object
     status: str = "active"
     capabilities: list[str] = field(default_factory=list)
 
