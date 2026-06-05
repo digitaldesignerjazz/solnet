@@ -37,4 +37,16 @@ jobs:
       run: mypy src
 
     - name: Test with pytest
-      run: pytest --tb=short
+      run: pytest --tb=short -q
+
+    - name: Smoke test console script
+      run: |
+        solnet-demo version
+        solnet-demo demo
+
+    - name: Smoke test examples (offline paths)
+      run: |
+        python -m examples.basic_integration 2>&1 | cat
+        python -m examples.emotional_swarm_simulation 2>&1 | head -30
+        python -m examples.hardware_sensor_loop 2>&1 | cat
+      # Note: examples use asyncio.run and may be long; head for one is fine for CI smoke
