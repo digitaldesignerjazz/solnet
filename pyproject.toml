@@ -45,6 +45,9 @@ dev = [
     "ruff>=0.4",
 ]
 
+[project.scripts]
+solnet-demo = "solnet.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/digitaldesignerjazz/solnet"
 Repository = "https://github.com/digitaldesignerjazz/solnet"
