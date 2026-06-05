@@ -11,10 +11,16 @@ Run with: python examples/hardware_sensor_loop.py
 
 import asyncio
 import random
-import time
+import sys
 from datetime import datetime
+from pathlib import Path
 
-from src.solnet.core import SolNetNode
+# Robust import support
+try:
+    from solnet.core import SolNetNode
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from src.solnet.core import SolNetNode
 
 
 async def soilnova_sensor_loop():
