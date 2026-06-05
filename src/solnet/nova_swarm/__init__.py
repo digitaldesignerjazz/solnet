@@ -10,7 +10,7 @@ from .coordinator import SwarmCoordinator
 from .roles import Role, ExplorerRole, WorkerRole, ValidatorRole
 from .task import Task, TaskStatus
 from .communication import SwarmCommunication
-from .types import SwarmMessage, AgentState
+from .types import SwarmMessage, AgentState, PersonalityTraits, RoleType
 
 __all__ = [
     "SwarmAgent",
@@ -24,4 +24,6 @@ __all__ = [
     "SwarmCommunication",
     "SwarmMessage",
     "AgentState",
+    "PersonalityTraits",
+    "RoleType",
 ]
