@@ -1,13 +1,20 @@
 """Basic runnable example demonstrating SolNet integration with a mock Nexus AI swarm.
 
 Run with: python examples/basic_integration.py
+
+Supports both `pip install -e .` (from solnet) and running from source tree.
 """
 
 import asyncio
 import sys
-sys.path.insert(0, "..")  # Allow running without install
+from pathlib import Path
 
-from src.solnet.core import SolNetNode
+# Robust import: prefer installed package, fallback to src/ layout
+try:
+    from solnet.core import SolNetNode
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from src.solnet.core import SolNetNode
 
 
 async def simulate_nexus_swarm_coordination():
