@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Status](https://img.shields.io/badge/Status-Early%20Development-orange.svg)](https://github.com/digitaldesignerjazz/solnet)
+[![Status](https://img.shields.io/badge/Status-Phase%200%20Active%20Development-orange.svg)](https://github.com/digitaldesignerjazz/solnet)
 
 **SolNet** — Decentralized SolNet networking and hyperspace integration layer for Nexus AI agent swarms, long-distance Yggdrasil mesh coordination, and NovaNet/xMesh/QNET ecosystem.
 
@@ -33,46 +33,11 @@ Aligned with core principles: family tradition of innovation (Esslinger Corporat
 - **Multi-Prototype Synergy**: Explicit design for interplay with Grok Launcher (compute/edge nodes), Soilnova (sensor data ingestion), Vista Nova (real-time network topology visualization and autotype interfaces).
 - **Developer Experience**: Clean Python SDK for rapid integration with AI/agent codebases; planned high-performance Rust core daemon for production mesh nodes; Docker-first deployment.
 
-## Architecture Overview
-
-See detailed documentation in [`docs/architecture.md`](docs/architecture.md). High-level conceptual flow:
-
-```mermaid
-flowchart TD
-    subgraph Edge ["Edge / Hardware Layer"]
-        HL[Grok Launcher / Soilnova / Vista Nova]
-    end
-
-    subgraph Mesh ["Decentralized Mesh Layer"]
-        YGG[Yggdrasil Self-Arranging Mesh]
-        XNET[xMesh / NovaNet Extensions]
-        SOL[SolNet Core
-Networking + Hyperspace]
-    end
-
-    subgraph Intel ["Intelligence & Coordination Layer"]
-        NEXUS[Nexus AI Agent Swarms
-& Self-Improving Systems]
-        QNET[QNET / XCoin Blockchain
-Incentives & Identity]
-    end
-
-    HL <--> SOL
-    YGG <--> SOL
-    XNET <--> SOL
-    SOL <--> NEXUS
-    NEXUS <--> QNET
-    SOL --> HYPER[Hyperspace
-Long-Distance Peering]
-```
-
-SolNet acts as the **integration fabric** enabling seamless data, command, and coordination flow between hardware reality, robust mesh connectivity, and intelligent autonomous agents.
-
-## Quick Start (Python SDK)
+## Quick Start (Python SDK + CLI)
 
 ### Prerequisites
 - Python ≥ 3.10
-- Running Yggdrasil node (https://yggdrasil-network.github.io/)
+- (Optional for full mesh) Running Yggdrasil node (https://yggdrasil-network.github.io/)
 - Git (for editable install)
 
 ### Installation
@@ -81,10 +46,17 @@ SolNet acts as the **integration fabric** enabling seamless data, command, and c
 # From source (recommended for development)
 git clone https://github.com/digitaldesignerjazz/solnet.git
 cd solnet
-pip install -e .
+pip install -e ".[dev]"
 
 # Or directly
 pip install git+https://github.com/digitaldesignerjazz/solnet.git
+```
+
+### CLI
+
+```bash
+solnet-demo version
+solnet-demo demo   # runs an offline basic coordination demo
 ```
 
 ### Basic Usage Example
@@ -96,19 +68,18 @@ import asyncio
 async def main():
     node = SolNetNode(
         node_id="esslinger-node-01",
-        yggdrasil_endpoint="http://localhost:9001"  # or your Yggdrasil admin socket
+        yggdrasil_endpoint="http://localhost:9001",  # or your Yggdrasil admin socket / unix path
+        offline_mode=False,
     )
     
-    # Join/participate in the local mesh
+    await node.start()
     await node.join_mesh(peers=["peer1.ygg", "peer2.ygg"])
     
-    # Establish hyperspace link to remote swarm segment
     tunnel = await node.establish_hyperspace_link(
         target="nexus-swarm-alpha.example.ygg",
         swarm_context="emotional-intelligence-collective"
     )
     
-    # Coordinate with Nexus AI agents
     result = await node.coordinate_swarm(
         tunnel=tunnel,
         agents=["agent-lyra", "agent-circuit"],
@@ -116,12 +87,16 @@ async def main():
     )
     
     print("Swarm coordination result:", result)
+    await node.stop()
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-See `examples/basic_integration.py` for a more complete runnable example.
+See `examples/` for runnable demos:
+- `basic_integration.py`
+- `emotional_swarm_simulation.py` (NovaSwarm emotional/loyalty dynamics)
+- `hardware_sensor_loop.py` (Soilnova-style telemetry)
 
 ## Related Projects in the Esslinger & Co. Ecosystem
 
@@ -130,11 +105,11 @@ See `examples/basic_integration.py` for a more complete runnable example.
 - [XNet Mesh](https://github.com/digitaldesignerjazz/xnet-mesh) — Rust implementation for Nova Prototype / QNET / xMesh
 - [Circuit 1.0](https://github.com/digitaldesignerjazz/circuit-1.0) — Emotional swarm intelligence with loyalty & friendship dynamics
 - [Lyra OS](https://github.com/digitaldesignerjazz/lyra-os) — Emotional swarm-based operating system
-- Esslinger & Co. corporate & prototype repositories
+- [solnet-orchestrator-architektur](https://github.com/digitaldesignerjazz/solnet-orchestrator-architektur) and related
 
 ## Development Status & Roadmap
 
-Early development phase. Core abstractions and Python integration layer are being established. See [`docs/roadmap.md`](docs/roadmap.md) for phased plan including Rust core, full hyperspace protocol, QNET incentives, hardware integrations (Soilnova sensor feeds, Vista Nova visualization), and self-improving feedback mechanisms.
+**Phase 0 Active** — Core Python SDK, Yggdrasil client (HTTP+Unix), NovaSwarm emotional models + coordinator, runnable examples with emotional/loyalty simulation, basic CLI, CI. See [docs/roadmap.md](docs/roadmap.md) for full plan (hyperspace protocol, Rust core, QNET/hardware integration in later phases).
 
 ## Contributing
 
