@@ -10,9 +10,11 @@
 - [x] Repository initialization with professional structure
 - [x] Enhanced README, MIT license, core documentation (architecture, roadmap)
 - [x] Python SDK skeleton (pyproject.toml, core abstractions, basic async APIs)
-- [ ] Initial examples and integration tests with mock Nexus swarms
-- [ ] Basic Yggdrasil admin API client wrapper
-- [ ] GitHub Actions CI skeleton (lint, typecheck, pytest)
+- [x] Initial examples (basic integration, emotional swarm sim, hardware sensor loop) with robust dev/installed imports
+- [x] Yggdrasil admin API client wrapper (full HTTP + Unix socket, auto-detect, good errors)
+- [x] NovaSwarm emotional/loyalty models, coordinator, agent roles with feedback loops
+- [ ] GitHub Actions CI skeleton (lint, typecheck, pytest) — basic present; can be expanded with example runs + coverage
+- [ ] Full packaging verification (`pip install -e .` + `from solnet...` imports clean)
 
 ## Phase 1: Core Networking & Hyperspace (Target: Q3 2026)
 - Full bidirectional Yggdrasil integration (peer lifecycle, route queries, event-driven topology updates)
